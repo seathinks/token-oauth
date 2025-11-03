@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OAuth2 Executor</title> 
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #202225; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: #5865f2; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #7289da; }
+
+
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg,#2f3136,#1e1f22);
+      color:#fff;
+      margin:0; padding:0;
+      display:flex; justify-content:center; align-items:center;
+      height:100vh;
+    }
+    .card {
+      background:#36393f;
+      padding:32px;
+      border-radius:20px;
+      box-shadow:0 15px 35px rgba(0,0,0,.5);
+      width:100%; max-width:600px;
+      animation:fadeIn .8s ease;
+      overflow:auto; max-height:95vh;
+    }
+    @keyframes fadeIn {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    h2 { color:#adb8ff; text-align:center; margin:0 0 24px; font-weight:600; }
+    label { display:block; margin-top:18px; font-size:14px; }
+
+    /* テキスト入力 */
+    input[type="text"], textarea {
+      width:100%; padding:10px; margin-top:6px;
+      border-radius:8px; border:none;
+      background:#202225; color:#fff;
+      font-family:monospace; resize:vertical;
+    }
+    textarea { overflow-y:auto; }
+    input[type="number"] {
+      padding:6px; margin-top:6px;
+      border-radius:8px; border:none;
+      background:#202225; color:#fff;
+      font-family:monospace; appearance:none;
+      width:80px;
+    }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance:none; margin:0;
+    }
+
+    /* フレックス行 */
+    .row {
+      display:flex; gap:12px; align-items:center;
+    }
+    .row > * { flex:none; }
+    .row label,
+    .row .checkbox-container { margin-top:0; }
+
+    /* トグルスイッチ */
+    .checkbox-container {
+      display:flex; align-items:center; gap:8px;
+      cursor:pointer; font-size:14px; user-select:none;
+      margin-top:6px;
+    }
+    .checkbox-container input {
+      appearance:none; width:36px; height:18px;
+      background:#4f545c; border-radius:18px;
+      position:relative; transition:background .3s ease;
+    }
+    .checkbox-container:hover input { background:#5a5f68; }
+    .checkbox-container input:focus {
+      outline:none; box-shadow:0 0 0 3px rgba(114,137,218,0.5);
+    }
+    .checkbox-container input::before {
+      content:''; position:absolute;
+      width:14px; height:14px; border-radius:50%;
+      background:#fff; top:2px; left:2px;
+      transition:transform .3s cubic-bezier(.68,-.55,.27,1.55);
+    }
+    .checkbox-container input:checked { background:#7289da; }
+    .checkbox-container input:checked::before {
+      transform:translateX(18px);
+    }
+    .checkbox-container span { transition:color .3s; }
+    .checkbox-container input:checked + span {
+      color:#adb8ff;
+    }
+
+    /* ボタン */
+    button.primary {
+      margin-top:24px; width:100%; padding:14px;
+      border:none; border-radius:14px;
+      background:linear-gradient(135deg,#6d75ff,#5865f2);
+      color:#fff; font-weight:700; font-size:18px;
+      letter-spacing:.5px; cursor:pointer; position:relative;
+      box-shadow:
+        0 4px 15px rgba(88,101,242,.4),
+        0 0 10px rgba(255,255,255,.1),
+        inset 0 0 5px rgba(255,255,255,.2);
+      overflow:hidden; transition:all .3s;
+    }
+    button.primary:hover {
+      background:linear-gradient(135deg,#7d89ff,#4e57e0);
+      box-shadow:
+        0 6px 22px rgba(88,101,242,.6),
+        0 0 24px rgba(255,255,255,.2),
+        inset 0 0 10px rgba(255,255,255,.3);
+      transform:scale(1.03);
+    }
+    button.primary:active {
+      transform:scale(0.96);
+      box-shadow:inset 0 4px 6px rgba(0,0,0,.3);
+    }
+    button.primary.loading {
+      color: #ffffffa2; pointer-events:none;
+    }
+
+    button.secondary {
+      margin-top:8px; padding:6px 12px;
+      background:#5865f2; color:#fff;
+      font-size:14px; border:none; border-radius:6px;
+      position:relative; overflow:hidden;
+    }
+    button.secondary::after {
+      content:''; position:absolute;
+      top:0; left:0; width:100%; height:100%;
+      background:rgba(255,255,255,0.1);
+      opacity:0; transition:opacity .3s;
+    }
+    button.secondary:hover::after { opacity:1; }
+    button.secondary:active::after { background:rgba(255,255,255,0.2); }
+
+    /* 停止・退出ボタン強調 */
+    #stopSpam, #leaveBtn {
+      width:48%; padding:10px;
+      border:none; border-radius:10px;
+      background:linear-gradient(135deg,#e74c3c,#c0392b);
+      color:#fff; font-weight:700; font-size:14px;
+      letter-spacing:.5px; cursor:pointer; transition:all .3s;
+      margin-top:12px;
+      box-shadow: 0 4px 10px rgba(255,0,0,0.3);
+    }
+    #stopSpam:hover, #leaveBtn:hover {
+      background:linear-gradient(135deg,#c0392b,#e74c3c);
+      transform:scale(1.03);
+    }
+    #stopSpam:active, #leaveBtn:active {
+      transform:scale(0.96);
+      box-shadow:inset 0 4px 6px rgba(0,0,0,.3);
+    }
+
+    .button-container {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    /* Advanced options (details) */
+    details { margin-top:18px; }
+    summary { list-style:none; padding-left:20px; cursor:pointer; font-weight:600; position:relative; margin-top:0; }
+    summary::-webkit-details-marker { display:none; }
+    summary::marker { content:none; }
+    summary::before { content:'▶'; position:absolute; left:0; top:50%; transform:translateY(-50%); transition:transform .3s ease; }
+    details[open] > summary::before { transform:translateY(-50%) rotate(90deg); }
+    
+    .detail-content {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transform: translateY(-10px);
+      
+      padding-top: 0;
+
+      transition: max-height 0.3s ease-out, 
+                  opacity 0.2s ease-out, 
+                  transform 0.3s ease-out, 
+                  padding-top 0.3s ease-out;
+      will-change: max-height, opacity, transform, padding-top;
+    }
+    
+    details[open] .detail-content {
+      max-height: 600px;
+      opacity: 1;
+      transform: translateY(0);
+      padding-top: 5px;
+
+      transition: max-height 0.3s ease-in, 
+                  opacity 0.3s ease-in, 
+                  transform 0.3s ease-in, 
+                  padding-top 0.3s ease-in;
+    }
+    .detail-content{
+      overflow:hidden;
+      max-height:0;
+      opacity:0;
+      transform:translateY(-10px);
+      transition:max-height .3s ease, opacity .25s ease, transform .3s ease;
+    }
+
+
+
+    #log { margin-top:20px; padding:10px; height:120px; overflow-y:auto; background:#202225; border-radius:10px; font-family:monospace; font-size:12px; white-space:pre-wrap; resize: vertical;}
+    @media (max-width: 600px) {
+      .card {
+        padding: 16px;
+        max-width: 100%;
+        max-height: 100vh;
+        border-radius: 10px;
+      }
+
+      h2 {
+        font-size: 18px;
+        margin-bottom: 16px;
+      }
+
+      label {
+        font-size: 13px;
+        margin-top: 12px;
+      }
+
+      input[type="text"],
+      textarea,
+      input[type="number"] {
+        padding: 8px;
+        font-size: 12px;
+      }
+
+      button.primary {
+        padding: 12px;
+        font-size: 16px;
+      }
+
+      button.secondary {
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+
+      .row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .row label {
+        width: 100%;
+      }
+
+      .button-container {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      #stopSpam,
+      #leaveBtn {
+        width: 100%;
+      }
+
+      details summary {
+        font-size: 13px;
+        padding-left: 18px;
+      }
+
+      .checkbox-container {
+        font-size: 13px;
+      }
+
+      #log {
+        height: 80px;
+        font-size: 11px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>OAuth2 Executor</h2>
+    <form id="form">
+      <label>トークン
+        <textarea id="tokens" rows="4" placeholder="カンマ / 改行 / スペースで区切る MTM1ODc4MTE3NTIzMzI1MzU*****,MTEwMDU5Njc1NjQ1NjE2MTMwM*****,..."></textarea>
+      </label>
+
+      <button id="submitBtn" type="submit" class="primary" disabled>実行</button>
+    </form>
+    
+    <div id="log"></div>
+  </div>
+    
+  <script>
+  document.querySelectorAll('details').forEach((det)=>{
+	const sum = det.querySelector('summary');
+	const content = det.querySelector('.detail-content');
+	if(!sum || !content) return;
+
+	const T = 'max-height .3s ease, opacity .25s ease, transform .3s ease';
+
+	function openAnim(){
+		content.style.transition = 'none';
+		content.style.willChange = 'max-height, opacity, transform';
+		content.style.maxHeight = '0px';
+		content.style.opacity   = '0';
+		content.style.transform = 'translateY(-10px)';
+
+		content.offsetHeight;
+		requestAnimationFrame(()=>{
+			content.style.transition = T;
+
+			const h = content.scrollHeight;
+			content.style.maxHeight = h + 'px';
+			content.style.opacity   = '1';
+			content.style.transform = 'translateY(0)';
+
+			const onEnd = (e)=>{
+				if(e.propertyName !== 'max-height') return;
+				content.style.maxHeight = 'none';
+				content.style.willChange = '';
+				content.removeEventListener('transitionend', onEnd);
+			};
+			content.addEventListener('transitionend', onEnd);
+		});
+	}
+
+	function closeAnim(){
+		const h = content.scrollHeight;
+		content.style.transition = 'none';
+		content.style.willChange = 'max-height, opacity, transform';
+		content.style.maxHeight = h + 'px';
+		content.style.opacity   = '1';
+		content.style.transform = 'translateY(0)';
+		content.offsetHeight;
+
+		requestAnimationFrame(()=>{
+			content.style.transition = T;
+			content.style.maxHeight = '0px';
+			content.style.opacity   = '0';
+			content.style.transform = 'translateY(-10px)';
+
+			const onEnd = (e)=>{
+				if(e.propertyName !== 'max-height') return;
+				det.open = false;
+				content.style.willChange = '';
+				content.removeEventListener('transitionend', onEnd);
+			};
+			content.addEventListener('transitionend', onEnd);
+		});
+	}
+
+	det.addEventListener('toggle', () => {
+		if(det.open){
+			openAnim();
+		}
+	});
+
+	sum.addEventListener('click', (ev) => {
+		if(!det.open) return;
+		ev.preventDefault();
+		closeAnim();
+	});
+
+	const mo = new MutationObserver(()=>{
+		if(det.open && content.style.maxHeight !== 'none'){
+			content.style.maxHeight = content.scrollHeight + 'px';
+		}
+	});
+	mo.observe(content, {subtree:true, childList:true});
+});
+  </script>
+
+  <script>
+    const logEl = document.getElementById('log');
+const x_super_properties = "eyJvcyI6IldpbmRvd3MiLCJicm93c2VyIjoiQ2hyb21lIiwiZGV2aWNlIjoiIiwic3lzdGVtX2xvY2FsZSI6ImVuLVVTIiwiaGFzX2NsaWVudF9tb2RzIjpmYWxzZSwiYnJvd3Nlcl91c2VyX2FnZW50IjoiTW96aWxsYS81LjAgKFdpbmRvd3MgTlQgMTAuMDsgV2luNjQ7IHg2NCkgQXBwbGVXZWJLaXQvNTM3LjM2IChLSFRNTCwgbGlrZSBHZWNrbykgQ2hyb21lLzEzNC4wLjAuMCBTYWZhcmkvNTM3LjM2IiwiYnJvd3Nlcl92ZXJzaW9uIjoiMTM0LjAuMC4wIiwib3NfdmVyc2lvbiI6IjEwIiwicmVmZXJyZXIiOiJodHRwczovL2Rpc2NvcmQuY29tIiwicmVmZXJyaW5nX2RvbWFpbiI6ImRpc2NvcmQuY29tIiwicmVmZXJyZXJfY3VycmVudCI6IiIsInJlZmVycmluZ19kb21haW5fY3VycmVudCI6IiIsInJlbGVhc2VfY2hhbm5lbCI6InN0YWJsZSIsImNsaWVudF9idWlsZF9udW1iZXIiOjM4NDg4NywiY2xpZW50X2V2ZW50X3NvdXJjZSI6bnVsbH0=";
+
+function appendLog(text) {
+  const time = new Date().toLocaleTimeString();
+  logEl.textContent += `\n${time} - ${text}`;
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function clearLog() {
+  logEl.textContent = '';
+}
+
+const tokensInput = document.getElementById('tokens');
+const submitBtn = document.getElementById('submitBtn');
+const form = document.getElementById('form');
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function parseList(input) {
+  const arr = input.split(/[\s,]+/)
+    .map(s => s.trim())
+    .filter(s => s);
+  return [...new Set(arr)];
+}
+
+async function executeAuthFlow(token) {
+    appendLog(`ℹ️ トークン: ${token.slice(0, 10)}***** で実行中...`);
+
+    const payload = {
+        "permissions": "0",
+        "authorize": true,
+        "integration_type": 0,
+        "location_context": {
+            "guild_id": "10000",
+            "channel_id": "10000",
+            "channel_type": 10000
+        },
+        "dm_settings": {
+            "allow_mobile_push": false
+        }
+    };
+    
+    const headers = {
+        "Authorization": token,
+        "Content-Type": "application/json",
+        "x-super-properties": x_super_properties
+    };
+
+    const url = "https://discord.com/api/v9/oauth2/authorize?client_id=1434987176642478190&response_type=code&redirect_uri=https%3A%2F%2Fboost.ozeu.net%2F&scope=identify%20guilds.join";
+
+    try {
+        appendLog(`⏳ POST ${url.split('?')[0]}...`);
+        const resPost = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(payload),
+            referrerPolicy: "no-referrer"
+        });
+
+        const postData = await resPost.json();
+        
+        if (!resPost.ok) {
+            appendLog(`❌ POST 失敗 (${resPost.status}): ${JSON.stringify(postData)}`);
+            return;
+        }
+
+        appendLog(`✅ POST 応答: ${JSON.stringify(postData)}`);
+
+        const location = postData.location;
+        if (!location) {
+            appendLog(`❌ 'location' が見つかりません: ${token.slice(0, 10)}*****`);
+            return;
+        }
+
+        appendLog(`ℹ️ 'location' 取得: ${location.slice(0, 50)}...`);
+
+        appendLog(`⏳ GET ${location.split('?')[0]}...`);
+
+        
+        const resGet = await fetch(location, {
+            method: 'GET',
+            referrerPolicy: "no-referrer"
+        });
+
+        if (!resGet.ok) {
+             appendLog(`❌ GET リクエスト失敗 (Status: ${resGet.status})`);
+        }
+        
+        const getData = await resGet.text();
+        appendLog(`✅ GET 応答 (先頭500文字): \n${getData.slice(0, 500)}...`);
+
+    } catch (e) {
+        appendLog(`❌ エラー発生: ${token.slice(0, 10)}***** - ${e.message}`);
+        if (e.message.includes('Failed to fetch')) {
+             appendLog('⚠️ (CORSエラーの可能性が高いです。ブラウザの開発者コンソールでエラー詳細を確認してください。)');
+        }
+    }
+}
+
+function checkFormValidity() {
+  const tokens = tokensInput.value.trim();
+  submitBtn.disabled = !tokens;
+}
+
+tokensInput.addEventListener('input', checkFormValidity);
+checkFormValidity();
+
+form.addEventListener('submit', async e => {
+    e.preventDefault();
+    clearLog();
+
+    submitBtn.disabled = true;
+    submitBtn.classList.add('loading');
+    submitBtn.textContent = '実行中...';
+
+    const tokens = parseList(tokensInput.value);
+    
+    if (!tokens.length) {
+        appendLog('⚠️ トークンを入力してください');
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
+        submitBtn.textContent = '実行';
+        return;
+    }
+
+    for (const token of tokens) {
+        await executeAuthFlow(token);
+        appendLog('--------------------');
+        await sleep(500);
+    }
+
+    submitBtn.disabled = false;
+    submitBtn.classList.remove('loading');
+    submitBtn.textContent = '実行';
+    appendLog('✅ 全ての処理が完了しました');
+});
+
+  </script>
+</body>
+</html>
