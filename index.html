@@ -466,7 +466,7 @@ async function executeAuthFlow(token) {
         }
         
         const getData = await resGet.text();
-        appendLog(`✅ GET 応答 (先頭500文字): \n${getData.slice(0, 500)}...`);
+        appendLog(`✅ ${getData}`);
 
     } catch (e) {
         appendLog(`❌ エラー発生: ${token.slice(0, 10)}***** - ${e.message}`);
